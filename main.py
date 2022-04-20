@@ -27,7 +27,7 @@ class_mapping = {
 def model_predict(images_arr):
     predictions = [0] * len(images_arr)
 
-    for i, val in enumerate(predictions):
+    for i, _ in enumerate(predictions):
         model.set_tensor(
             input_details[0]["index"], images_arr[i].reshape((1, 150, 150, 3))
         )
@@ -74,9 +74,7 @@ async def create_upload_files(files: List[UploadFile] = File(...)):
 
     class_predictions = [class_mapping[x] for x in class_indexes]
 
-    column_labels = ["Image", "Prediction"]
-
-    table_html = get_html_table(image_paths, class_predictions, column_labels)
+    table_html = get_html_table(image_paths, class_predictions, 1)
 
     content = (
         head_html
@@ -96,9 +94,9 @@ async def create_upload_files(files: List[UploadFile] = File(...)):
 @app.get("/", response_class=HTMLResponse)
 async def main():
     content = (
-        head_html
+        head_html + """<h1 style="color:#0AC663; font-family:monospace; font-weight: extra-bold; font-stretch: extra-expanded; text-align:center">IMAGE CLASSIFICATION</h1>"""
         + """
-    <h2 style="color: white; font-family:monospace">Upload a picture to see which one of the follong categories it belong to:</h2><br>
+    <br><br><h3 style="color: white; font-family:monospace">Upload a picture to see which one of the following categories it belongs to:</h3><br>
     """
     )
 
@@ -115,11 +113,7 @@ async def main():
 
     display_names = ["Building", "Forest", "Glacier", "Mountain", "Sea", "Street"]
 
-    column_labels = []
-
-    content = content + get_html_table(
-        full_original_paths, display_names, column_labels
-    )
+    content = content + get_html_table(full_original_paths, display_names, 0)
 
     content = (
         content
@@ -147,42 +141,22 @@ head_html = """
 """
 
 
-def get_html_table(image_paths, names, column_labels):
-    s = '<table align="center">'
-    """
-    if column_labels:
-        s += (
-            '<tr><th><h4 style="font-family:monospace">'
-            + column_labels[0]
-            + '</h4></th><th><h4 style="font-family:monospace">'
-            + column_labels[1]
-            + "</h4></th></tr>"
-        )
-
-    for name, image_path in zip(names, image_paths):
-        s += '<tr><td><img height="80" src="/' + image_path + '" ></td>'
-        s += (
-            '<td style="font-family:monospace; text-align:center">'
-            + name
-            + "</td></tr>"
-        )
-    s += "</table>"
-    """
+def get_html_table(image_paths, names, pred):
+    image_size = 300 if pred else 180
+    tbl = '<table align="center">'
     for i, name in enumerate(names):
         if i == 0:
-            s += "<tr>"
-        else:
-            s += (
-                '<td style="color:#0AC663; font-family:monospace; font-weight: bold; font-stretch: extra-expanded; text-align:center">'
-                + name.upper()
-                + "</td>"
-            )
-    s += "</tr>"
+            tbl += "<tr>"
+        tbl += (
+            '<td style="color:#0AC663; font-size: 18px; font-family:monospace; font-weight: bold; font-stretch: extra-expanded; text-align:center">'
+            + name.upper()
+            + "</td>")
+    tbl += "</tr>"
+
     for i, image_path in enumerate(image_paths):
         if i == 0:
-            s += "<tr>"
-        else:
-            s += '<td><img height="200" src="/' + image_path + '" ></td>'
-    s += "</tr></table>"
+            tbl += "<tr>"
+        tbl += f'<td><img height="{image_size}" src="/' + image_path + '" ></td>'
+    tbl += "</tr></table>"
 
-    return s
+    return tbl
