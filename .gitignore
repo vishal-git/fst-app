@@ -1,3 +1,6 @@
-.env/
 __pycache__/
 static/*.jpg
+.env/
+data/
+image-model.zip
+model/
