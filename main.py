@@ -25,19 +25,16 @@ class_mapping = {
 
 
 def model_predict(images_arr):
-    predictions = [0] * len(images_arr)
+    model.set_tensor(
+        input_details[0]["index"], images_arr.reshape((1, 150, 150, 3))
+    )
+    model.invoke()
+    preds = model.get_tensor(output_details[0]["index"]).reshape((6,))
 
-    for i, _ in enumerate(predictions):
-        model.set_tensor(
-            input_details[0]["index"], images_arr[i].reshape((1, 150, 150, 3))
-        )
-        model.invoke()
-        predictions[i] = model.get_tensor(output_details[0]["index"]).reshape((6,))
+    pred = np.argmax(preds)
+    max_phat = max(preds)
 
-    prediction_probabilities = np.array(predictions)
-    argmaxs = np.argmax(prediction_probabilities, axis=1)
-
-    return argmaxs
+    return pred, max_phat
 
 
 app = FastAPI()
@@ -49,32 +46,33 @@ def resize(image):
 
 
 @app.post("/uploadfiles/", response_class=HTMLResponse)
-async def create_upload_files(files: List[UploadFile] = File(...)):
+async def create_upload_files(files: UploadFile = File(...)):
+    '''
     images = []
     for file in files:
         f = await file.read()
         images.append(f)
+    '''
+    image = await files.read()
 
-    images = [np.frombuffer(img, np.uint8) for img in images]
-    images = [cv2.imdecode(img, cv2.IMREAD_COLOR) for img in images]
-    images_resized = [resize(img) for img in images]
-    images_rgb = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in images_resized]
+    image = np.frombuffer(image, np.uint8)
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    image_resized = resize(image)
+    image_rgb = cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB)
 
-    names = [file.filename for file in files]
+    name = files.filename
 
-    for image, name in zip(images_rgb, names):
-        pillow_image = Image.fromarray(image)
-        pillow_image.save("static/" + name)
+    pillow_image = Image.fromarray(image_rgb)
+    pillow_image.save("static/" + name)
 
-    image_paths = ["static/" + name for name in names]
+    image_path = "static/" + name
 
-    images_arr = np.array(images_rgb, dtype=np.float32)
+    images_arr = np.array(image_rgb, dtype=np.float32)
 
-    class_indexes = model_predict(images_arr)
+    pred, proba = model_predict(images_arr)
+    pred_class = class_mapping[pred]
 
-    class_predictions = [class_mapping[x] for x in class_indexes]
-
-    table_html = get_html_table(image_paths, class_predictions, 1)
+    table_html = get_html_results_table(image_path, pred_class)
 
     content = (
         head_html
@@ -113,7 +111,7 @@ async def main():
 
     display_names = ["Building", "Forest", "Glacier", "Mountain", "Sea", "Street"]
 
-    content = content + get_html_table(full_original_paths, display_names, 0)
+    content = content + get_html_table(full_original_paths, display_names)
 
     content = (
         content
@@ -141,8 +139,8 @@ head_html = """
 """
 
 
-def get_html_table(image_paths, names, pred):
-    image_size = 300 if pred else 180
+def get_html_table(image_paths, names):
+    image_size = 180
     tbl = '<table align="center">'
     for i, name in enumerate(names):
         if i == 0:
@@ -157,6 +155,22 @@ def get_html_table(image_paths, names, pred):
         if i == 0:
             tbl += "<tr>"
         tbl += f'<td><img height="{image_size}" src="/' + image_path + '" ></td>'
+    tbl += "</tr></table>"
+
+    return tbl
+
+def get_html_results_table(image_path, name):
+    image_size = 300
+    tbl = '<table align="center">'
+    tbl += "<tr>"
+    tbl += (
+            '<td style="color:#0AC663; font-size: 18px; font-family:monospace; font-weight: bold; font-stretch: extra-expanded; text-align:center">'
+            + name.upper()
+            + "</td>")
+    tbl += "</tr>"
+
+    tbl += "<tr>"
+    tbl += f'<td><img height="{image_size}" src="/' + image_path + '" ></td>'
     tbl += "</tr></table>"
 
     return tbl
