@@ -33,7 +33,7 @@ pyzmq==22.3.0
 six==1.16.0
 sniffio==1.2.0
 starlette==0.16.0
-tflite-runtime==2.7.0
+tflite-runtime==2.8.0
 tornado==6.1
 traitlets==5.1.1
 typing-extensions==4.0.1
